@@ -84,22 +84,22 @@ check for whether the key is already present in the `Map` before trying to updat
 let grouped = new Map();
 for (let [key, ...values] of data) {
   if (grouped.has(key)) {
-    grouped.get(key).push(values);
+    grouped.get(key).push(...values);
   } else {
-    grouped.set(key, values);
+    grouped.set(key, ...values);
   }
 }
 
 // Using emplace
 let grouped = new Map();
 for (let [key, ...values] of data) {
-  grouped.emplace(key, []).push(values);
+  grouped.emplace(key, []).push(...values);
 }
 
 // Using DefaultMap
 let grouped = new DefaultMap(() => []);
 for (let [ key, ...values ] of data) {
-  grouped.get(key).push(values);
+  grouped.get(key).push(...values);
 }
 ```
 
@@ -113,7 +113,7 @@ example above.
 ### Maintaining a counter
 
 Another common use case is maintaining a counter associated with a
-particular key. Using `emplace` or `DefaultDict` makes this more
+particular key. Using `emplace` or `DefaultMap` makes this more
 concise, and is the kind of access and then mutate pattern that is
 easily optimizable by engines. [TODO: Verify this claim!]
 
