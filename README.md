@@ -17,7 +17,7 @@ ECMAScript proposal and reference implementation for `Map.prototype.emplace`.
 A common problem when using a `Map` is how to handle doing an update when
 you're not sure if the key already exists in the `Map`. This can be handled
 by first checking if the key is present, and then inserting or updating
-depending upon the result, but this is both inconvienent for the developer,
+depending upon the result, but this is both inconvenient for the developer,
 and less than optimal, because it requires multiple lookups in the `Map`
 that could otherwise be handled in a single call.
 
@@ -27,15 +27,6 @@ We propose the addition of a method that will return the value associated
 with `key` if it is already present in the dictionary, and otherwise insert
 the `key` with the provided default value, and then return that value.
 
-We also propose adding a new collection type, `DefaultMap` that will function
-like `Map`, except that it will take a callback that will be called in the case
-of a missing value, with the return value of that function inserted in the map
-and returned to the user.
-
-Although we expect that `DefaultMap` will be used in most cases, `emplace` is
-useful in the case where the default value depends upon more information than
-the `key` itself.
-
 Earlier versions of this proposal had the `emplace` method provide two callbacks,
 one for `insert` and the other for `update`, however the current champion thinks
 that the get / insert if necessary is a sufficiently common usecase that it makes
@@ -44,7 +35,8 @@ It also strongly follows precedent from other languages, in particular Python.
 
 ## Examples & Proposed API
 
-TODO: Design question: Should the callback function take the `key` as an argument?
+TODO: Design question: Should the the default value be the result of calling a
+callback function, or be passed as a simple value?
 
 ### Handling default values
 
@@ -64,14 +56,11 @@ prefs.emplace("useDarkmode", true); // default to true
 ```
 
 By using `emplace`, default values can be applied at different times, with the
-assurance that later defaults will not overwrite an existing value. This is a
-usecase for which `DefaultMap` is not as suitable, because it only allows a
-single default value.
-
-For example, in a situation where there are user preferences, operating system
-preferencs, and application defaults, we can use emplace to apply the user
-preferences, and then the operating system preferences, and then the application
-defaults, without worrying about overwriting the user's preferences.
+assurance that later defaults will not overwrite an existing value. For example,
+in a situation where there are user preferences, operating system preferences,
+and application defaults, we can use emplace to apply the user preferences,
+and then the operating system preferences, and then the application defaults,
+without worrying about overwriting the user's preferences.
 
 ### Grouping data incrementally
 
@@ -95,27 +84,20 @@ let grouped = new Map();
 for (let [key, ...values] of data) {
   grouped.emplace(key, []).push(...values);
 }
-
-// Using DefaultMap
-let grouped = new DefaultMap(() => []);
-for (let [ key, ...values ] of data) {
-  grouped.get(key).push(...values);
-}
 ```
 
 It's true that a common usecase for this pattern is already covered by
 `Map.groupBy`. However, that method requires that all data be available
-prior to building the groups; using `emplace` or `DefaultMap` would
-allow the Map to be built and used incrementally. It also provides
-flexibility to work with data other than objects, such as the array
-example above.
+prior to building the groups; using `emplace` would allow the Map to be
+built and used incrementally. It also provides flexibility to work with
+data other than objects, such as the array example above.
 
 ### Maintaining a counter
 
 Another common use case is maintaining a counter associated with a
-particular key. Using `emplace` or `DefaultMap` makes this more
-concise, and is the kind of access and then mutate pattern that is
-easily optimizable by engines. [TODO: Verify this claim!]
+particular key. Using `emplace` makes this more concise, and is the
+kind of access and then mutate pattern that is easily optimizable
+by engines. [TODO: Verify this claim!]
 
 ```js
 // Currently
@@ -129,10 +111,6 @@ if (counts.has(key)) {
 // Using emplace
 let counts = new Map();
 counts.set(key, m.emplace(key, 0) + 1);
-
-// Using DefaultMap
-let counts = new DefaultMap(() => 0);
-counts.set(counts.get(key) + 1);
 ```
 
 ## Implementations in other languages
@@ -210,12 +188,11 @@ A subclass of `dict` that takes a callback function that is used to construct mi
   entry1.insertIfMissing(0);
   ```
 
-### Why are we calling this `emplace` and `DefaultMap`?
+### Why are we calling this `emplace`?
 
   - `upsert` was seen as too unique a term and the ordering was problematic as there was a desire to focus on insertion.
     - ~~It is a combination of "update" & "insert" that is already used in other programming situations and many SQL variants use that exact term.~~
   - `emplace` matches a naming precedent from C++, although the semantics are closer to `operator[]` than `emplace`.
-  - `DefaultMap` matches a naming precedent from Python.
 
 ### What happens during re-entrancy?
 
@@ -242,21 +219,4 @@ Map.prototype.emplace = function (key, defaultValue) {
   this.set(key, defaultValue);
   return this.get(key);
 };
-
-class DefaultMap extends Map {
-  constructor(callback) {
-    super();
-    this.callback = callback;
-  }
-
-  get(key) {
-    if (this.has(key)) {
-      return super.get(key);
-    }
-    // Todo: verify that callback is callable
-    var defaultValue = this.callback();
-    this.set(key, defaultValue);
-    return defaultValue;
-  }
-}
 ```
